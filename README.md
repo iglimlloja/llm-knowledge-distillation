@@ -44,11 +44,19 @@ llm-knowledge-distillation/
 │
 ├── distillation_gcp/
 │   ├── distillation_script.py        Main GCP distillation script: InflatedDecoder with configurable initialization (centered/fresh/noise), KL loss with cumulative logit reduction
+│   ├── sparse_residual_distillation_script.py  Alternative GCP distillation script using a SparseResidualDecoder (optional LayerNorm, grouped-softmax via cumulative-sum, residual injection on top of the student's own distribution); sweeps multiple decoder configs in parallel
 │   ├── profiling.py                  Profiling harness for the teacher-student pipeline on GCP; measures throughput of the producer-consumer training loop
 │   ├── gemma3_gcp.ipynb              GCP-adapted notebook: token frequency analysis on the math dataset, inflated decoder setup, and training loop
-│   └── debugging.ipynb               Debugging notebook: compares multiple decoder configurations, sparse residual decoders with layer norm, and different distillation strategies
+│   └── debugging.ipynb               Debugging notebook: compares multiple decoder configurations and sparse residual decoders with layer norm; also explores modeling the teacher−student residual with regularized least squares over engineered features (square roots, pairwise products, binary rank indicators, VIF analysis)
 │
 └── analysis/
     ├── statistical_analysis.ipynb    Token frequency analysis across the full dataset; rank-frequency plots (log-log), top-10K token identification, linear regression on embeddings
-    └── visualize_per_token_loss.ipynb  Visualizes Llama-2-7B prediction distributions as color-coded probability heatmaps; builds global token co-occurrence confusion matrices
+    ├── visualize_per_token_loss.ipynb  Visualizes Llama-2-7B prediction distributions as color-coded probability heatmaps; builds global token co-occurrence confusion matrices
+    ├── two_stage_cluster_decoding.ipynb  Explores efficient candidate-token decoding over the large vocabulary: spherical/Euclidean k-means clustering of the teacher lm_head, a cascaded TwoStageClusterDecoder (coarse → fine routing), and several aggregation strategies; measures whether the ground-truth top-k tokens survive into the kept candidate pool (recall@k / coverage). Also sketches graph-traversal and Hadamard-hashing retrieval variants
+    └── gradient_structure_analysis.ipynb  Low-rank gradient probe: hooks the final-layer MLP gate_proj to capture (input, output, grad) and verifies the per-example rank-1 structure of the weight gradient (G·Xᵀ), assessing feasibility of low-rank / compressed gradient updates
 ```
+
+## Notes on versioning
+
+- **Two distillation scripts are kept intentionally.** `distillation_gcp/distillation_script.py` and `distillation_gcp/sparse_residual_distillation_script.py` are *not* duplicate versions of the same file — they implement two different decoder designs (the `InflatedDecoder`, which repeats each vocabulary logit into a fixed number of neurons, vs. the `SparseResidualDecoder`, which learns a residual correction on top of the student's own distribution). Both are retained because they represent distinct experimental approaches.
+- **`debugging.ipynb` is the fuller version.** The notebook here is the complete debugging session (it is a strict superset of an earlier 28-cell extract), so only the more recent/complete copy is kept to avoid a near-duplicate.
